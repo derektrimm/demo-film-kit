@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Interface shots</title>
+<link rel="icon" href="data:," />
+<style>
+  @font-face { font-family: 'Sora'; src: url('/fonts/sora-variable.woff2') format('woff2'); font-weight: 100 800; }
+  @font-face { font-family: 'Inter'; src: url('/fonts/inter-variable.woff2') format('woff2'); font-weight: 100 900; }
+  @font-face { font-family: 'JetBrains Mono'; src: url('/fonts/jetbrains-mono-variable.woff2') format('woff2'); font-weight: 100 800; }
+  html, body { margin: 0; background: #070504; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<script type="module">
+  // Interface shots: real captures of real tools (ui/record.mjs films web tools at 3840x2160, a
+  // 1920x1080 layout at 2x; ui/blender films Blender the same way), each shown in a window that
+  // floats over a blurred backdrop, so a tool never reads as the product itself. The window's title
+  // bar names what is on screen. A slow camera moves inside the window, callout rings mark what the
+  // shot teaches, and a loupe enlarges small text beside its ring. ui/shots.js lists the shots.
+  // window.__frame(shotIndex, t) draws one frame.
+  import { SHOTS, THEME as THEME_ } from './shots.js';
+  import { clamp, smooth, easeOut, easeInOut } from '../src/util.js';
+
+  const c = document.getElementById('c');
+  const g = c.getContext('2d');
+  const cache = new Map();
+  const load = (src) => {
+    if (!cache.has(src)) cache.set(src, new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('missing ' + src)); i.src = src; }));
+    return cache.get(src);
+  };
+
+  // The window: its content keeps the frame's 16:9, with a title bar above it and room above
+  // that for the step plates of the caption track.
+  const WIN = { x: 216, y: 201, w: 1488, h: 837 };
+  const BAR = 38, R = 14;
+  // The accent (rings, title bar, loupes) and the title bar's font; shots.js may export THEME.
+  const THEME = { accent: '232,178,74', font: '600 19px "JetBrains Mono"', ...(THEME_ ?? {}) };
+  const GOLD = THEME.accent;
+
+  // A camera is the source rectangle (in 1920x1080 layout pixels) that fills the window.
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const view = (shot, k) => {
+    const a = shot.from ?? { x: 0, y: 0, w: 1920 }, b = shot.to ?? a;
+    const e = easeInOut(k);
+    const w = lerp(a.w, b.w, e);
+    return { x: lerp(a.x, b.x, e), y: lerp(a.y, b.y, e), w, h: w * 9 / 16 };
+  };
+  // Which capture shows at time t: a fixed image, or a sequence played across a window. A
+  // sequence dissolves from each capture into the next, so a time-lapse flows and typed letters
+  // fade in instead of popping: { src, next, mix } says which two and how far between them.
+  const framesAt = (shot, t) => {
+    if (shot.image) return { src: shot.image, next: null, mix: 0 };
+    const seq = shot.seq, d = shot.duration;
+    const s0 = shot.seqFrom ?? 0, s1 = shot.seqTo ?? d;
+    const pos = clamp((t - s0) / Math.max(0.001, s1 - s0)) * (seq.length - 1);
+    const i = Math.floor(pos);
+    // `seqHold` (a fraction): each capture holds, and only the last part of its turn dissolves into
+    // the next. For a run of states whose words change (a card going from Install to Installing
+    // 60%), a continuous dissolve would show both sets of words on top of each other.
+    const hold = shot.seqHold;
+    const mix = hold ? smooth((pos - i - (1 - hold)) / hold) : pos - i;
+    return { src: seq[i], next: seq[Math.min(seq.length - 1, i + 1)], mix };
+  };
+  const imageAt = (shot, t) => framesAt(shot, t).src;
+  // Draws a sequence's two neighbouring captures, the second at the dissolve's opacity.
+  const drawFrames = async (ctx, shot, t, draw) => {
+    const f = framesAt(shot, t);
+    const a = await load(f.src);
+    draw(a, 1);
+    if (f.next && f.next !== f.src && f.mix > 0.001) draw(await load(f.next), f.mix);
+  };
+
+  // A board lays several pictures (renders, a waveform, the launcher) out on one 1920x1080 card,
+  // drawn at 2x so the camera can move in on it; each picture is fitted whole into its box.
+  const board = document.createElement('canvas');
+  board.width = 3840; board.height = 2160;
+  const b = board.getContext('2d');
+  const compose = async (shot, t) => {
+    b.setTransform(2, 0, 0, 2, 0, 0);
+    const bg = b.createLinearGradient(0, 0, 0, 1080);
+    bg.addColorStop(0, '#120c07'); bg.addColorStop(1, '#070504');
+    b.fillStyle = bg; b.fillRect(0, 0, 1920, 1080);
+    for (const item of shot.board) {
+      const on = item.t0 === undefined ? 1 : smooth((t - item.t0) / 0.4);
+      if (on <= 0) continue;
+      if (item.wave) {
+        // A sound, played: the whole waveform dim, the part heard so far bright, and a playhead.
+        const img = await load(item.image);
+        const p = clamp((t - item.wave.t0) / item.wave.dur);
+        b.save();
+        b.strokeStyle = `rgba(${GOLD},0.22)`; b.lineWidth = 1.5;
+        b.beginPath(); b.moveTo(item.x, item.y + item.h / 2); b.lineTo(item.x + item.w, item.y + item.h / 2); b.stroke();
+        b.globalAlpha = 0.26; b.drawImage(img, item.x, item.y, item.w, item.h);
+        b.globalAlpha = 1;
+        b.beginPath(); b.rect(item.x, item.y - 20, item.w * p, item.h + 40); b.clip();
+        b.shadowColor = `rgba(${GOLD},0.55)`; b.shadowBlur = 18;
+        b.drawImage(img, item.x, item.y, item.w, item.h);
+        b.restore();
+        if (p > 0 && p < 1) {
+          const x = item.x + item.w * p;
+          b.save();
+          b.strokeStyle = 'rgba(255,236,190,0.95)'; b.lineWidth = 3;
+          b.shadowColor = `rgba(${GOLD},0.9)`; b.shadowBlur = 20;
+          b.beginPath(); b.moveTo(x, item.y - 30); b.lineTo(x, item.y + item.h + 30); b.stroke();
+          b.restore();
+        }
+        continue;
+      }
+      if (item.plain) {
+        // A plain item fills its box exactly, with no card around it: a whole screen, or a page
+        // set into the pane of the screen it belongs to.
+        await drawFrames(b, { ...item, duration: shot.duration }, t, (img, alpha) => { b.globalAlpha = on * alpha; b.drawImage(img, item.x, item.y, item.w, item.h); });
+        b.globalAlpha = 1;
+        continue;
+      }
+      const pic = await load(imageAt({ ...item, duration: shot.duration }, t));
+      const fit = Math.min(item.w / pic.naturalWidth, item.h / pic.naturalHeight);
+      const w = pic.naturalWidth * fit, h = pic.naturalHeight * fit;
+      const x = item.x + (item.w - w) / 2, y = item.y + (item.h - h) / 2 + (1 - on) * 24;
+      b.save();
+      b.globalAlpha = on;
+      b.shadowColor = 'rgba(0,0,0,0.6)'; b.shadowBlur = 40; b.shadowOffsetY = 12;
+      b.beginPath(); b.roundRect(x, y, w, h, 14);
+      b.fillStyle = '#000'; b.fill();   // the shadow is cast by this fill; the clip below has none
+      b.shadowColor = 'transparent';
+      b.clip();
+      await drawFrames(b, { ...item, duration: shot.duration }, t, (img, alpha) => { b.globalAlpha = on * alpha; b.drawImage(img, x, y, w, h); });
+      b.restore();
+      b.save();
+      b.globalAlpha = 0.5 * on;
+      b.strokeStyle = `rgba(${GOLD},0.55)`; b.lineWidth = 1.5;
+      b.beginPath(); b.roundRect(x, y, w, h, 14); b.stroke();
+      b.restore();
+    }
+    return board;
+  };
+
+  // A steady sequence: one still frame of the page, with only the regions that really change
+  // (seqClip) played from the sequence, dissolving frame to frame inside them.
+  const steady = document.createElement('canvas');
+  steady.width = 3840; steady.height = 2160;
+  const st = steady.getContext('2d');
+  const composeSteady = async (shot, t) => {
+    st.globalAlpha = 1;
+    st.drawImage(await load(shot.seqBase), 0, 0, 3840, 2160);
+    const f = framesAt(shot, t);
+    const layers = [[await load(f.src), 1]];
+    if (f.next && f.next !== f.src && f.mix > 0.001) layers.push([await load(f.next), f.mix]);
+    for (const [img, alpha] of layers) {
+      st.globalAlpha = alpha;
+      const k = img.naturalWidth / 1920;
+      for (const r of shot.seqClip) st.drawImage(img, r.x * k, r.y * k, r.w * k, r.h * k, r.x * 2, r.y * 2, r.w * 2, r.h * 2);
+    }
+    st.globalAlpha = 1;
+    return steady;
+  };
+
+  // A fixed dither, the same on every frame: a dark, smooth glow quantised to 8 bits (and then by
+  // the encoder) shows as rings that crawl when the camera moves. Adding 0 to 3 levels of noise
+  // that never changes breaks the rings up without any shimmer.
+  const dither = document.createElement('canvas');
+  dither.width = 1920; dither.height = 1080;
+  {
+    const d = dither.getContext('2d');
+    const px = d.createImageData(1920, 1080);
+    let seed = 1937;
+    const rnd = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 4294967296);
+    for (let i = 0; i < px.data.length; i += 4) {
+      const v = Math.round((rnd() + rnd()) * 1.5);
+      px.data[i] = px.data[i + 1] = px.data[i + 2] = v; px.data[i + 3] = 255;
+    }
+    d.putImageData(px, 0, 0);
+  }
+
+  // The backdrop behind the window, with a warm light from above.
+  const drawBackdrop = async (shot) => {
+    g.fillStyle = '#070504';
+    g.fillRect(0, 0, 1920, 1080);
+    if (shot.backdrop) {
+      // Blurred and dimmed, so the eye stays on the window. backdropBlur: 0 for a backdrop already blurred.
+      g.save();
+      g.filter = `blur(${shot.backdropBlur ?? 22}px) brightness(${shot.backdropDim ?? 0.55})`;
+      g.drawImage(await load(shot.backdrop), -60, -40, 2040, 1160);
+      g.restore();
+    }
+    const glow = g.createRadialGradient(960, 120, 80, 960, 400, 1250);
+    glow.addColorStop(0, `rgba(${GOLD},0.10)`);
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = glow;
+    g.fillRect(0, 0, 1920, 1080);
+  };
+
+  const drawWindowFrame = (title) => {
+    const x = WIN.x, y = WIN.y - BAR, w = WIN.w, h = WIN.h + BAR;
+    g.save();
+    g.shadowColor = 'rgba(0,0,0,0.72)'; g.shadowBlur = 70; g.shadowOffsetY = 26;
+    g.beginPath(); g.roundRect(x, y, w, h, R);
+    g.fillStyle = '#0b0805'; g.fill();
+    g.restore();
+    // Title bar: a gold diamond and the name of what is on screen.
+    g.save();
+    g.beginPath(); g.roundRect(x, y, w, BAR, [R, R, 0, 0]); g.clip();
+    const bar = g.createLinearGradient(0, y, 0, y + BAR);
+    bar.addColorStop(0, '#22170d'); bar.addColorStop(1, '#150e08');
+    g.fillStyle = bar; g.fillRect(x, y, w, BAR);
+    g.restore();
+    g.save();
+    g.translate(x + 26, y + BAR / 2); g.rotate(Math.PI / 4);
+    g.fillStyle = `rgb(${GOLD})`; g.fillRect(-5, -5, 10, 10);
+    g.restore();
+    g.font = THEME.font;
+    g.fillStyle = '#eadcc0';
+    g.textBaseline = 'middle';
+    g.fillText(title.toUpperCase().split('').join(' '), x + 48, y + BAR / 2 + 1);
+  };
+
+  const drawWindowEdge = () => {
+    const x = WIN.x, y = WIN.y - BAR, w = WIN.w, h = WIN.h + BAR;
+    g.save();
+    g.strokeStyle = `rgba(${GOLD},0.42)`; g.lineWidth = 1.5;
+    g.beginPath(); g.roundRect(x + 0.75, y + 0.75, w - 1.5, h - 1.5, R); g.stroke();
+    g.strokeStyle = `rgba(${GOLD},0.22)`; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(x, WIN.y + 0.5); g.lineTo(x + w, WIN.y + 0.5); g.stroke();
+    g.restore();
+  };
+
+  window.__frame = async (index, t) => {
+    const shot = SHOTS[index];
+    const k = clamp(t / shot.duration);
+    const img = shot.board ? await compose(shot, t) : shot.seqClip ? await composeSteady(shot, t) : await load(imageAt(shot, t));
+    const dissolve = shot.seq && !shot.board && !shot.seqClip ? framesAt(shot, t) : null;
+    const v = view(shot, k);
+    const sx = (img.naturalWidth || img.width) / 1920;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.globalAlpha = 1;
+    await drawBackdrop(shot);
+    drawWindowFrame(shot.place ?? '');
+    // The content, clipped to the window below its title bar.
+    g.save();
+    g.beginPath(); g.roundRect(WIN.x, WIN.y, WIN.w, WIN.h, [0, 0, R, R]); g.clip();
+    g.imageSmoothingEnabled = true;
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(img, v.x * sx, v.y * sx, v.w * sx, v.h * sx, WIN.x, WIN.y, WIN.w, WIN.h);
+    let next = null;
+    if (dissolve?.next && dissolve.next !== dissolve.src && dissolve.mix > 0.001) {
+      next = await load(dissolve.next);
+      g.globalAlpha = dissolve.mix;
+      g.drawImage(next, v.x * sx, v.y * sx, v.w * sx, v.h * sx, WIN.x, WIN.y, WIN.w, WIN.h);
+      g.globalAlpha = 1;
+    }
+    const toScreen = (x, y) => [WIN.x + (x - v.x) * WIN.w / v.w, WIN.y + (y - v.y) * WIN.w / v.w];
+    // Everything in the window outside the callout dims a little, so the eye goes where the shot
+    // points.
+    const rings = [];
+    for (const call of shot.callouts ?? []) {
+      const on = Math.min(smooth((t - call.t0) / 0.5), smooth((call.t1 - t) / 0.4));
+      if (on <= 0) continue;
+      const [x0, y0] = toScreen(call.x, call.y), [x1, y1] = toScreen(call.x + call.w, call.y + call.h);
+      const pad = 12;
+      const ring = { call, on, x: x0 - pad, y: y0 - pad, w: x1 - x0 + pad * 2, h: y1 - y0 + pad * 2 };
+      rings.push(ring);
+      // A loupe carries the eye on its own, so the rest dims less and the subject stays lit; `dim`
+      // sets it for a callout whose explanation sits outside its ring (a hover card).
+      g.fillStyle = `rgba(5,3,2,${(call.dim ?? (call.loupe ? 0.2 : 0.42)) * on})`;
+      g.beginPath();
+      g.rect(WIN.x, WIN.y, WIN.w, WIN.h);
+      g.roundRect(ring.x, ring.y, ring.w, ring.h, 12);
+      g.fill('evenodd');
+    }
+    g.restore();
+    drawWindowEdge();
+    for (const ring of rings) {
+      const { call, on } = ring;
+      // The ring draws itself around the target.
+      const draw = smooth((t - call.t0) / 0.9);
+      g.save();
+      g.strokeStyle = `rgba(${GOLD},${0.95 * on})`;
+      g.lineWidth = 3.5;
+      g.shadowColor = `rgba(${GOLD},0.7)`;
+      g.shadowBlur = 22;
+      const per = 2 * (ring.w + ring.h);
+      g.setLineDash([per * draw, per]);
+      g.beginPath(); g.roundRect(ring.x, ring.y, ring.w, ring.h, 12); g.stroke();
+      g.restore();
+      if (!call.loupe) continue;
+      // The loupe: the ringed region enlarged, drawn from the full-resolution capture, with a
+      // gold line from the ring to it.
+      const L = call.loupe;
+      const grow = easeOut((t - call.t0 - 0.15) / 0.45);
+      const lo = on * clamp((t - call.t0 - 0.15) / 0.3);
+      if (lo <= 0) continue;
+      const w = call.w * L.s, h = call.h * L.s;
+      const s = 0.9 + 0.1 * grow;
+      const cx = L.x + w / 2, cy = L.y + h / 2;
+      const bx = cx - (w * s) / 2, by = cy - (h * s) / 2, bw = w * s, bh = h * s;
+      g.save();
+      g.globalAlpha = lo;
+      g.strokeStyle = `rgba(${GOLD},0.75)`; g.lineWidth = 2;
+      const ax = L.x + w / 2 < ring.x ? ring.x : ring.x + ring.w, ay = ring.y + ring.h / 2;
+      const tx = bx < ax ? bx + bw : bx, ty = by + bh / 2;
+      g.beginPath(); g.moveTo(ax, ay); g.lineTo(tx, ty); g.stroke();
+      g.shadowColor = 'rgba(0,0,0,0.75)'; g.shadowBlur = 40; g.shadowOffsetY = 14;
+      g.beginPath(); g.roundRect(bx, by, bw, bh, 12); g.fillStyle = '#0b0805'; g.fill();
+      g.shadowColor = 'transparent';
+      g.save();
+      g.beginPath(); g.roundRect(bx, by, bw, bh, 12); g.clip();
+      g.drawImage(img, call.x * sx, call.y * sx, call.w * sx, call.h * sx, bx, by, bw, bh);
+      if (next) { g.globalAlpha = lo * dissolve.mix; g.drawImage(next, call.x * sx, call.y * sx, call.w * sx, call.h * sx, bx, by, bw, bh); }
+      g.restore();
+      g.globalAlpha = lo;
+      g.strokeStyle = `rgba(${GOLD},0.95)`; g.lineWidth = 3;
+      g.shadowColor = `rgba(${GOLD},0.6)`; g.shadowBlur = 18;
+      g.beginPath(); g.roundRect(bx, by, bw, bh, 12); g.stroke();
+      g.restore();
+    }
+    // A warm vignette, so the window shares the air of the footage around it.
+    const vg = g.createRadialGradient(960, 560, 520, 960, 560, 1200);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(6,3,1,0.5)');
+    g.fillStyle = vg;
+    g.fillRect(0, 0, 1920, 1080);
+    g.globalCompositeOperation = 'lighter';
+    g.drawImage(dither, 0, 0);
+    g.globalCompositeOperation = 'source-over';
+  };
+  // A capture named by its recording: { dir, match, from, to } picks the frames of dir/frames.json
+  // (written by ui/record.mjs) whose names contain `match`, optionally only numbers from..to;
+  // { dir, match, last: true } picks the last one. Plain paths pass through.
+  const listings = new Map();
+  const frames = async (spec) => {
+    if (!listings.has(spec.dir)) listings.set(spec.dir, fetch(`${spec.dir}/frames.json`).then((r) => { if (!r.ok) throw new Error(`no ${spec.dir}/frames.json: record it first`); return r.json(); }));
+    const all = await listings.get(spec.dir);
+    const picked = all.filter((f) => {
+      const n = Number(f.slice(0, 4));
+      return (!spec.match || f.includes(spec.match)) && (spec.from === undefined || n >= spec.from) && (spec.to === undefined || n <= spec.to);
+    }).map((f) => `${spec.dir}/${f}`);
+    if (!picked.length) throw new Error(`no frames in ${spec.dir} match ${JSON.stringify(spec)}`);
+    return picked;
+  };
+  const one = async (v) => (typeof v === 'string' || !v ? v : spec1(await frames(v), v));
+  const spec1 = (list, v) => (v.last ? list[list.length - 1] : list[0]);
+  const many = async (v) => (Array.isArray(v) ? (await Promise.all(v.map((x) => (typeof x === 'string' ? [x] : frames(x))))).flat() : frames(v));
+  const resolve = async (s) => {
+    if (s.image) s.image = await one(s.image);
+    if (s.seq) s.seq = await many(s.seq);
+    if (s.seqBase) s.seqBase = await one(s.seqBase);
+    if (s.backdrop) s.backdrop = await one(s.backdrop);
+    for (const item of s.board ?? []) { if (item.image) item.image = await one(item.image); if (item.seq) item.seq = await many(item.seq); }
+  };
+  window.__shots = SHOTS.map((s) => ({ name: s.name, duration: s.duration }));
+  (async () => {
+    await document.fonts.ready;
+    await Promise.all(['600 19px "JetBrains Mono"', '600 20px "Sora"', '500 20px "Inter"'].map((f) => document.fonts.load(f)));
+    for (const s of SHOTS) await resolve(s);
+    await Promise.all(SHOTS.flatMap((s) => [...(s.board ? s.board.map((i) => i.image ?? i.seq[0]) : s.image ? [s.image] : [s.seq[0]]), ...(s.backdrop ? [s.backdrop] : []), ...(s.seqBase ? [s.seqBase] : [])]).map(load));
+    window.__ready = true;
+  })().catch((e) => { window.__failed = String(e); });
+</script>
+</body>
+</html>

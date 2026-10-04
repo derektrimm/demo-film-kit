@@ -1,0 +1,14 @@
+{
+  "page": "ui/sample-app/",
+  "colorScheme": "dark",
+  "steps": [
+    { "snap": "start", "png": true },
+    { "type": "Make the evening scene golden hour, with long shadows.", "into": "#ask", "every": 2 },
+    { "wait": 300 },
+    { "snap": "typed", "png": true },
+    { "click": "#start" },
+    { "watch": { "every": 0.3, "until": ".done", "max": 60, "name": "live" } },
+    { "wait": 400 },
+    { "snap": "done", "png": true }
+  ]
+}

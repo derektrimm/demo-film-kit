@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Task console</title>
+<link rel="icon" href="data:," />
+<style>
+  @font-face { font-family: 'Inter'; src: url('/public/fonts/inter-variable.woff2') format('woff2'); font-weight: 100 900; }
+  @font-face { font-family: 'JetBrains Mono'; src: url('/public/fonts/jetbrains-mono-variable.woff2') format('woff2'); font-weight: 100 800; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: #0e1116; color: #e6e9ee; font-family: 'Inter', sans-serif; }
+  header { display: flex; align-items: center; gap: 14px; padding: 22px 48px; border-bottom: 1px solid #222832; }
+  header .dot { width: 14px; height: 14px; border-radius: 50%; background: #4fb477; box-shadow: 0 0 12px #4fb477; }
+  header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 0.01em; }
+  header .sub { color: #8a93a3; font-size: 15px; }
+  main { display: grid; grid-template-columns: 560px 1fr; gap: 40px; padding: 40px 48px; min-height: calc(100vh - 71px); }
+  .card { background: #151a22; border: 1px solid #252c38; border-radius: 14px; padding: 26px; }
+  label { display: block; font-size: 14px; color: #8a93a3; margin-bottom: 10px; letter-spacing: 0.04em; text-transform: uppercase; }
+  textarea { width: 100%; height: 150px; resize: none; background: #0e1116; color: #e6e9ee; border: 1px solid #2d3542; border-radius: 10px; padding: 14px; font: 500 19px/1.45 'Inter', sans-serif; outline: none; }
+  textarea:focus { border-color: #4f8fe0; }
+  button { margin-top: 16px; background: #4f8fe0; color: #fff; border: 0; border-radius: 10px; padding: 12px 26px; font: 600 17px 'Inter', sans-serif; }
+  .log h2 { margin: 0 0 18px; font-size: 20px; }
+  .note { display: flex; gap: 14px; padding: 12px 0; border-top: 1px solid #222832; font-size: 18px; }
+  .note time { color: #6b7585; font-family: 'JetBrains Mono', monospace; font-size: 15px; padding-top: 2px; }
+  .done { margin-top: 20px; padding: 16px 18px; border-radius: 10px; background: rgba(79,180,119,0.12); border: 1px solid rgba(79,180,119,0.45); color: #9fdcb6; font-weight: 600; font-size: 19px; }
+  .empty { color: #6b7585; font-size: 17px; }
+</style>
+</head>
+<body>
+<header><div class="dot"></div><h1>Task console</h1><span class="sub">a sample tool to film</span></header>
+<main>
+  <section class="card">
+    <label for="ask">New task</label>
+    <textarea id="ask" placeholder="Describe what you want done"></textarea>
+    <button id="start">Start</button>
+  </section>
+  <section class="card log"><h2>Progress</h2><div id="notes"><div class="empty">No task yet.</div></div></section>
+</main>
+<script>
+  const NOTES = ['Reading the project', 'Found the lighting settings', 'Lowering the sun and warming it', 'Lengthening the shadows', 'Building a test version', 'Comparing before and after'];
+  document.getElementById('start').addEventListener('click', () => {
+    const notes = document.getElementById('notes');
+    notes.innerHTML = '';
+    let i = 0;
+    const tick = () => {
+      if (i < NOTES.length) {
+        const n = document.createElement('div'); n.className = 'note';
+        n.innerHTML = `<time>0:${String(i * 7 + 3).padStart(2, '0')}</time><span>${NOTES[i]}</span>`;
+        notes.appendChild(n); i++; setTimeout(tick, 600);
+      } else {
+        const d = document.createElement('div'); d.className = 'done'; d.textContent = 'Done. The test version is ready.'; notes.appendChild(d);
+      }
+    };
+    setTimeout(tick, 400);
+  });
+</script>
+</body>
+</html>

@@ -1,54 +1,62 @@
-# game-trailer-kit
+# demo-film-kit
 
-Film a trailer from your game's own running build. A director inside the game plays a shot list while the game runs its own code, and every frame is captured at a locked 60 fps, so nothing is staged or edited. A small Node pipeline then cuts the takes frame-exact, lays captions over them, scores and mixes the sound to -16 LUFS, and checks every shot for hitches.
+Make demo films of any project from the real thing: trailers filmed from a game's own running build, product films of a device on a studio stage, and walkthroughs of real tools doing real work. Every picture source renders frame by frame on a locked clock, and one story file drives the cut, the captions, the score, the sound effects and the mix. One command builds the finished film: 1080p60, -16 LUFS, with an animated logo intro and a closing card.
 
-- **`unity/TrailerKit/`** holds the director for Unity, plus a sample scene to try the pipeline before pointing it at a game.
-- **`capture/`** holds the shot list (`plan.py`) and the script that films it (`film.sh`).
-- **`src/timeline.js`** is the trailer's one clock: the cut, the captions, the beats, the score edits and the sound cues.
-- **`scripts/`** holds the post pipeline: captions, cut, mix, join, smoothness check, the score envelope, event maps, timing strips, an audio-described cut and web renditions.
+## Picture sources
 
-[METHOD.md](METHOD.md) covers how to make a trailer that lands: the bar, the pacing and the workflow. [DIRECTOR.md](DIRECTOR.md) covers the director: the plan format, the Unity hooks and what a director needs in another engine.
+| Source | What it films | Guide |
+| --- | --- | --- |
+| **engine** | The game itself: a director inside the build plays a shot list while the game runs its own code (Unity director included) | [docs/ENGINE.md](docs/ENGINE.md) |
+| **studio** | A three.js stage: the product modelled and lit in a dark studio, its real interface on its screens | [docs/STUDIO.md](docs/STUDIO.md) |
+| **tools** | Real tools doing real work, recorded at 2x and shown in a framed window with camera moves, callout rings and loupes (web tools, terminals, Blender) | [docs/TOOLS.md](docs/TOOLS.md) |
+| **ident** | Your SVG logo as an animated intro and a closing card | [docs/IDENT.md](docs/IDENT.md) |
+
+Every source writes a take: `capture/<take>.mp4` and a manifest of the frame each shot starts on. The story (`src/timeline.js`) cuts between takes by shot name, lays captions and chapter wipes over them, and cues the score and effects on the same clock ([docs/SOUND.md](docs/SOUND.md)). [METHOD.md](METHOD.md) is how to make a film that lands: the bar, the pacing, the shape of each kind of film, and the traps.
 
 ## Requirements
 
-- ffmpeg with libx264; libsvtav1 and libx265 as well for the web renditions
-- Node 20 or newer, and Python 3
-- A Chromium for the caption renderer: `npx playwright-core install chromium` after `npm install`, or point `CHROME` at one you have
-- Unity 6 for the included director (tested on 6000.3 with the built-in pipeline and with URP)
-- Linux or macOS to film: frames reach ffmpeg through a named pipe
+- Node 20 or newer, ffmpeg with libx264 (libsvtav1 and libx265 for the web renditions), Python 3 for engine shot plans
+- A Chromium for rendering: `npx playwright-core install chromium` after `npm install`, or point `CHROME` at one you have
+- A GPU for the studio and the ident (WebGL); tool shots and captions render anywhere
+- For engine takes: Unity 6 for the included director (tested on 6000.3 on Linux, built-in pipeline and URP; macOS should work through the same named pipe but is untested)
+- For Blender shots: Blender and Xvfb, on Linux
 
-## Try it on the sample
+## Try the sample
 
-The sample is a runner circling a ring of pillars and a ball that bounces and makes a sound. The whole run takes about ten minutes.
+The sample film is a product demo: a device in the studio, a walkthrough of a task console filmed for real, and back to the device for the press the film builds to, between a logo intro and a closing card: 56 seconds, which takes about 20 minutes to build on a desktop GPU.
 
-1. Copy `unity/TrailerKit` into the `Assets` folder of a Unity 6 project, then choose **Tools > Trailer Kit > Build Sample Player**. The player lands in `Builds/TrailerSample/` beside `Assets`. On macOS the executable is inside the app: `TrailerSample.app/Contents/MacOS/TrailerSample`.
-2. In this folder:
+```sh
+npm install
+npx playwright-core install chromium
+scripts/stand-in-audio.sh      # placeholder score and effects
+npm run build:film             # records, renders, cuts, captions, mixes, joins and checks
+```
 
-   ```sh
-   npm install
-   npx playwright-core install chromium
-   npm run plan                                        # capture/plan-film.json
-   PLAYER=/path/to/Builds/TrailerSample/TrailerSample npm run film
-   scripts/stand-in-audio.sh                           # placeholder score and effects
-   npm run build
-   npm run serve &                                     # the caption page, on port 4173
-   npm run captions && npm run cut && npm run mix && npm run join && npm run check
-   ```
+Watch `out/film.mp4`. The build ends with each shot's worst frame-to-frame jump and a contact sheet in `out/sheets/shots.jpg`.
 
-3. Watch `out/trailer.mp4`. `npm run check` prints each shot's worst frame-to-frame jump and writes a contact sheet to `out/sheets/shots.jpg`. Stop the server when you are done.
+The trailer sample films a Unity scene: copy `unity/TrailerKit` into a Unity 6 project, choose **Tools > Trailer Kit > Build Sample Player**, point `src/timeline.js` at `./stories/trailer.js`, and run `PLAYER=<path to the built player> npm run build:film`.
 
-To look at framing before filming, `npm run stills` then `PLAYER=... capture/film.sh plan-stills.json stills` writes PNGs at the start, middle and end of every shot into `capture/stills/`.
+## Make your film
 
-## Make your game's trailer
+1. Write the story: copy `src/stories/demo.js` or `src/stories/trailer.js`, and point `src/timeline.js` at it.
+2. Set up the sources it needs: a director in your game, your product in `studio/scene.js`, recordings of your tools and their shots in `ui/shots.js`, your logo in `ident/`.
+3. List how the picture is made in the story's `BUILD.steps`, and render stills of each source to check the framing before rendering takes.
+4. Replace the stand-in audio with a real score and effects, and land the score's hit on your hero moment.
+5. `npm run build:film`. After the first build, `npm run build:film -- --skip-steps` re-cuts, re-captions and re-mixes without re-rendering the takes.
 
-1. Copy `unity/TrailerKit/Runtime` into your project, without `Sample`, and connect the hooks your game needs: how to get into play, how to set up a shot, and one line in your audio code. See [DIRECTOR.md](DIRECTOR.md).
-2. Replace the shots in `capture/plan.py` with yours, film stills, read them, and adjust.
-3. Film the master, find the moments with `scripts/events.mjs` and `scripts/strip.mjs`, and write your story in `src/timeline.js`.
-4. Replace the stand-in audio with a real score and effects, set `SCORE.cuts` so the score's hit lands on your hero moment, and set `GAME_AUDIO` to lay your game's own sounds where they played.
-5. Build, join with your own intro and end card (`node scripts/join.mjs out/body.mp4 out/trailer.mp4 --intro logo.mp4 --outro card.mp4 --sting sting.mp3`), and check. Pass the intro's length to the check: `node scripts/check.mjs out/trailer.mp4 3`.
-6. For the web, `scripts/renditions.sh out/trailer.mp4 out/web` encodes AV1, HEVC and H.264 renditions and a poster.
+## Automation
 
-[METHOD.md](METHOD.md) walks through each step and the traps worth knowing first.
+`scripts/build.mjs` runs the whole film from the story with no hand steps: it checks every sound file the story needs before rendering anything, records the tools, renders and films every take, then builds and checks the film. Each step is also a script on its own (`scripts/render.mjs`, `ui/record.mjs`, `capture/film.sh`, `scripts/overlay.mjs`, `scripts/cut.mjs`, `scripts/mix.mjs`, `scripts/join.mjs`, `scripts/check.mjs`) for working on one part at a time. [AGENTS.md](AGENTS.md) is the same workflow written as instructions for an automated agent making a film of a project end to end.
+
+## Delivering
+
+- **Web renditions.** `scripts/renditions.sh out/film.mp4 out/web` encodes AV1, HEVC (Main tier) and H.264 at 1080p60, H.264 at 720p60, and a WebP poster.
+- **Audio description.** `node scripts/describe.mjs out/film.mp4 out/film-described.mp4` lays narrated descriptions from `DESCRIPTION` over the film's mix.
+- **Re-scoring a reel.** `scripts/recut.mjs` puts a score under an existing video without touching its own sound.
+
+### Sharing
+
+`share/share.sh out/film.mp4 <slug> "<Title>" "<one line>"` publishes the film on a private, unguessable link: a player page with a poster and link previews, served from your computer through Tailscale Funnel by a user service that survives reboots. It probes the page, the video and the poster before printing the link. `share/share.sh --list` shows every shared film, and `--off <slug>` takes one down. Needs Tailscale with Funnel enabled and Linux user systemd.
 
 ## License
 

@@ -1,6 +1,6 @@
-# The director
+# Engine: filming the game itself
 
-The director is the only code that goes into the game. It boots with one command-line switch and a plan file, films the plan's shots in order, writes what it filmed, and quits. Everything after that happens outside the game.
+An engine take is the running game, filmed by a director: the only code that goes into the game. It boots with one command-line switch and a plan file, films the plan's shots in order, writes what it filmed, and quits. Everything after that happens outside the game. `src/stories/trailer.js` cuts the Unity sample's shots into a trailer.
 
 ## The contract (any engine)
 
@@ -20,7 +20,7 @@ A director:
 
 ## The plan
 
-`capture/plan.py` writes it. Plan fields:
+`capture/plan.py` writes it (`python3 capture/plan.py film` or `stills`), and `PLAYER=<player> capture/film.sh [plan] [take]` films it. Plan fields:
 
 | Field | Meaning |
 | --- | --- |

@@ -11,3 +11,6 @@ capture/frames.fifo
 capture/data/
 capture/cfg/
 out/
+ui/captures/
+ui/backdrops/
+__pycache__/

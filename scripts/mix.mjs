@@ -1,5 +1,9 @@
 // Mixes the score and the sound effects onto the picture, from the same cue
-// list the picture uses: node scripts/mix.mjs <picture.mp4> <out.mp4>
+// list the picture uses: node scripts/mix.mjs <picture.mp4> <out.mp4> [--timeline <module>]
+//
+// --timeline mixes from another cue module than src/timeline.js (the logo ident's ident/sound.js).
+// A module with SCORE = null has no score; one with LOUDNESS = null is not loudness-normalised,
+// only limited (for short pieces of hits, which -16 LUFS integrated would push far too loud).
 //
 // Needs the score (out/audio/music.mp3, or SCORE.file) and out/audio/sfx/<name>.mp3 for every cue name.
 // Score edits (cuts, ducks) come from SCORE in src/timeline.js. With GAME_AUDIO
@@ -8,7 +12,11 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, parse, resolve } from 'node:path';
-import * as timeline from '../src/timeline.js';
+import { pathToFileURL } from 'node:url';
+
+const argv = process.argv.slice(2);
+const tlAt = argv.indexOf('--timeline');
+const timeline = await import(tlAt >= 0 ? pathToFileURL(resolve(argv.splice(tlAt, 2)[1])).href : '../src/timeline.js');
 
 const { soundCues, DURATION, SCORE, CUT, TAKES, FPS, startOf } = timeline;
 const GAME_AUDIO = timeline.GAME_AUDIO ?? null;
@@ -16,7 +24,7 @@ const GAME_AUDIO = timeline.GAME_AUDIO ?? null;
 // each line a file in dir (file.mp3), starting at t seconds into the body; the score ducks under it.
 const VOICE = timeline.VOICE ?? null;
 
-const [picture, out] = process.argv.slice(2);
+const [picture, out] = argv;
 if (!picture || !out) throw new Error('usage: node scripts/mix.mjs <picture.mp4> <out.mp4>');
 const AUDIO = new URL('../out/audio/', import.meta.url).pathname;
 const SR = 48000;
@@ -38,8 +46,10 @@ const info = Object.fromEntries(kinds.map((k) => [k, measure(`${AUDIO}sfx/${k}.m
 // [{ file, from, to, at, gain, fade }], each a slice of a file in out/audio placed at `at` seconds,
 // faded in and out over `fade` so neighbours crossfade (an overture, a quiet bed under a narrator,
 // and a finale from another score).
-const parts = SCORE.parts ?? null;
-const args = ['-loglevel', 'error', '-y', '-i', picture, '-i', `${AUDIO}${parts ? parts[0].file : SCORE.file ?? 'music.mp3'}`];
+const parts = SCORE?.parts ?? null;
+// Input 1 is the score, or a stretch of silence when there is none.
+const args = ['-loglevel', 'error', '-y', '-i', picture, ...(SCORE ? ['-i', `${AUDIO}${parts ? parts[0].file : SCORE.file ?? 'music.mp3'}`] : ['-f', 'lavfi', '-t', String(DURATION), '-i', `anullsrc=r=${SR}:cl=stereo`])];
+if (SCORE && !parts && !existsSync(args[args.length - 1])) throw new Error(`missing score ${args[args.length - 1]}`);
 for (const c of cues) args.push('-i', `${AUDIO}sfx/${c.sfx}.mp3`);
 
 // The product's own sounds: every logged one-shot inside a cut shot, at its own frame.
@@ -91,7 +101,7 @@ for (const line of VOICE?.lines ?? []) {
 
 const f = [];
 // Score: keep the spans between cuts, crossfade each join.
-const cuts = [...(SCORE.cuts ?? [])].sort((a, b) => a.from - b.from);
+const cuts = [...(SCORE?.cuts ?? [])].sort((a, b) => a.from - b.from);
 const spans = []; let at = 0;
 for (const c of cuts) { spans.push([at, c.from]); at = c.to; }
 spans.push([at, null]);
@@ -108,7 +118,7 @@ if (parts) {
   for (let i = 1; i < spans.length; i++) { f.push(`[${last}][m${i}]acrossfade=d=0.08:c1=tri:c2=tri[mj${i}]`); last = `mj${i}`; }
 }
 // Ducks: a 0.12 s dip in, held, a 0.5 s recovery.
-const duck = (SCORE.ducks ?? []).map((d) => `${d.depth ?? 0.62}*clip((t-${d.from - 0.08})/0.12,0,1)*clip((${d.to + 0.35}-t)/0.5,0,1)`);
+const duck = (SCORE?.ducks ?? []).map((d) => `${d.depth ?? 0.62}*clip((t-${d.from - 0.08})/0.12,0,1)*clip((${d.to + 0.35}-t)/0.5,0,1)`);
 const vol = duck.length ? `volume='max(0,1-(${duck.join('+')}))':eval=frame,` : '';
 f.push(`[${last}]${vol}apad=whole_dur=${DURATION},afade=t=out:st=${DURATION - 1.6}:d=1.6,atrim=0:${DURATION}[music]`);
 // Effects: each normalised to a -3 dBFS peak, then placed so its PEAK lands on its cue (or, for a
@@ -151,17 +161,21 @@ if (VOICE?.lines?.length) {
 
 // Two-pass loudness to -16 LUFS / -1.5 dBTP. loudnorm reports at info level,
 // so the measuring pass cannot run at -loglevel error.
-const graph1 = [...f, `[pre]loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json[a]`].join(';');
-const probe = spawnSync('ffmpeg', ['-hide_banner', '-loglevel', 'info', ...args.slice(2), '-filter_complex', graph1, '-map', '[a]', '-f', 'null', '-'], { encoding: 'utf8', maxBuffer: 1 << 26 });
-const start = probe.stderr.lastIndexOf('{'), end = probe.stderr.lastIndexOf('}');
-if (probe.status !== 0 || start < 0) { console.error(probe.stderr.slice(-3000)); throw new Error('loudness pass failed'); }
-const json = JSON.parse(probe.stderr.slice(start, end + 1));
-console.log('measured', json.input_i, 'LUFS', json.input_tp, 'dBTP');
-const ln = `loudnorm=I=-16:TP=-1.5:LRA=11:measured_I=${json.input_i}:measured_TP=${json.input_tp}:measured_LRA=${json.input_lra}:measured_thresh=${json.input_thresh}:offset=${json.target_offset}:linear=true`;
-// A loud transient can leave linear loudnorm above the ceiling (it did by 0.4 dB): a limiter at
-// -2 dB sample peak keeps the true peak under -1.5 dBTP after the AAC encode.
+let master = `[pre]alimiter=limit=0.794:attack=5:release=60:level=disabled,aresample=${SR}[a]`;
+if (timeline.LOUDNESS !== null) {
+  const graph1 = [...f, `[pre]loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json[a]`].join(';');
+  const probe = spawnSync('ffmpeg', ['-hide_banner', '-loglevel', 'info', ...args.slice(2), '-filter_complex', graph1, '-map', '[a]', '-f', 'null', '-'], { encoding: 'utf8', maxBuffer: 1 << 26 });
+  const start = probe.stderr.lastIndexOf('{'), end = probe.stderr.lastIndexOf('}');
+  if (probe.status !== 0 || start < 0) { console.error(probe.stderr.slice(-3000)); throw new Error('loudness pass failed'); }
+  const json = JSON.parse(probe.stderr.slice(start, end + 1));
+  console.log('measured', json.input_i, 'LUFS', json.input_tp, 'dBTP');
+  const ln = `loudnorm=I=-16:TP=-1.5:LRA=11:measured_I=${json.input_i}:measured_TP=${json.input_tp}:measured_LRA=${json.input_lra}:measured_thresh=${json.input_thresh}:offset=${json.target_offset}:linear=true`;
+  // A loud transient can leave linear loudnorm above the ceiling (it did by 0.4 dB): a limiter at
+  // -2 dB sample peak keeps the true peak under -1.5 dBTP after the AAC encode.
+  master = `[pre]${ln},alimiter=limit=0.794:attack=5:release=60:level=disabled,aresample=${SR}[a]`;
+}
 // ffmpeg ignores colour flags on encode, so the BT.709 tags are written here by a lossless bitstream filter.
-execFileSync('ffmpeg', [...args, '-filter_complex', [...f, `[pre]${ln},alimiter=limit=0.794:attack=5:release=60:level=disabled,aresample=${SR}[a]`].join(';'), '-map', '0:v', '-map', '[a]',
+execFileSync('ffmpeg', [...args, '-filter_complex', [...f, master].join(';'), '-map', '0:v', '-map', '[a]',
   '-c:v', 'copy', '-bsf:v', 'h264_metadata=colour_primaries=1:transfer_characteristics=1:matrix_coefficients=1:video_full_range_flag=0',
   '-c:a', 'aac', '-b:a', '256k', '-ar', String(SR), '-movflags', '+faststart', '-t', String(DURATION), out], { stdio: 'inherit' });
 console.log('wrote', out);

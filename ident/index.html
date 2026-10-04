@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Ident</title>
+<link rel="icon" href="data:," />
+<style>
+  @font-face { font-family: 'Sora'; src: url('/fonts/sora-variable.woff2') format('woff2'); font-weight: 100 800; }
+  @font-face { font-family: 'Inter'; src: url('/fonts/inter-variable.woff2') format('woff2'); font-weight: 100 900; }
+  @font-face { font-family: 'JetBrains Mono'; src: url('/fonts/jetbrains-mono-variable.woff2') format('woff2'); font-weight: 100 800; }
+  html, body { margin: 0; background: #000; overflow: hidden; }
+  #stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; }
+  canvas { position: absolute; inset: 0; display: block; width: 1920px; height: 1080px; }
+  #words { position: absolute; inset: 0; pointer-events: none; font-family: 'Sora', sans-serif; color: #f5ecd9; }
+  #name { position: absolute; left: 0; right: 0; bottom: 205px; text-align: center; font-size: 34px; font-weight: 600; letter-spacing: 0.52em; padding-left: 0.52em; text-transform: uppercase; color: #f3d693; opacity: 0; text-shadow: 0 2px 22px rgba(0,0,0,0.9); }
+  #card { position: absolute; left: 0; right: 0; top: 590px; text-align: center; opacity: 0; }
+  #card .studio { font-size: 26px; font-weight: 600; letter-spacing: 0.5em; padding-left: 0.5em; text-transform: uppercase; color: #f3d693; }
+  #card .title { margin-top: 16px; font-size: 92px; font-weight: 700; letter-spacing: -0.025em; }
+  #card .tag { margin-top: 12px; font-family: 'Inter', sans-serif; font-size: 32px; font-weight: 500; color: #cdbfa6; }
+  #fine { position: absolute; left: 0; right: 0; bottom: 46px; text-align: center; font-family: 'Inter', sans-serif; font-size: 18px; color: #8b7e6d; letter-spacing: 0.02em; opacity: 0; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="gl" width="1920" height="1080"></canvas>
+  <div id="words">
+    <div id="name"></div>
+    <div id="card"><div class="studio"></div><div class="title"></div><div class="tag"></div></div>
+    <div id="fine"></div>
+  </div>
+</div>
+<script type="module" src="./main.js"></script>
+</body>
+</html>
