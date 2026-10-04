@@ -2,6 +2,10 @@
 
 Make demo films of any project from the real thing: trailers filmed from a game's own running build, product films of a device on a studio stage, and walkthroughs of real tools doing real work. Every picture source renders frame by frame on a locked clock, and one story file drives the cut, the captions, the score, the sound effects and the mix. One command builds the finished film: 1080p60, -16 LUFS, with an animated logo intro and a closing card.
 
+![Frames from the sample film: the logo intro, the product in the studio, the tool walkthrough, the press and the title](docs/preview.jpg)
+
+Frames from the sample film, built from a fresh clone by `npm run build:film`.
+
 ## Picture sources
 
 | Source | What it films | Guide |
