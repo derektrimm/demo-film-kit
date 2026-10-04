@@ -1,0 +1,14 @@
+{
+    "name": "TrailerKit.Sample.Editor",
+    "rootNamespace": "TrailerKit.Sample.Editor",
+    "references": ["TrailerKit", "TrailerKit.Sample"],
+    "includePlatforms": ["Editor"],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

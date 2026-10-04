@@ -1,0 +1,13 @@
+node_modules/
+dist/
+capture/*.mp4
+capture/*.log
+capture/*-manifest.txt
+capture/*-sounds.txt
+capture/plan-*.json
+capture/probe.txt
+capture/stills/
+capture/frames.fifo
+capture/data/
+capture/cfg/
+out/

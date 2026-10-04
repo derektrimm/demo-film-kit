@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Trailer captions</title>
+<link rel="icon" href="data:," />
+<style>
+  @font-face { font-family: 'Sora'; src: url('/fonts/sora-variable.woff2') format('woff2'); font-weight: 100 800; }
+  @font-face { font-family: 'Inter'; src: url('/fonts/inter-variable.woff2') format('woff2'); font-weight: 100 900; }
+  @font-face { font-family: 'JetBrains Mono'; src: url('/fonts/jetbrains-mono-variable.woff2') format('woff2'); font-weight: 100 800; }
+  html, body { margin: 0; background: transparent; overflow: hidden; }
+  #overlay { position: relative; width: 1920px; height: 1080px; overflow: hidden; font-family: 'Sora', sans-serif; color: #f5ecd9; }
+  .super { position: absolute; left: 132px; bottom: 120px; opacity: 0; will-change: transform, opacity; }
+  .super .kicker { font-family: 'JetBrains Mono', monospace; font-size: 22px; letter-spacing: 0.42em; text-transform: uppercase; color: #ecbe5b; margin-bottom: 18px; text-shadow: 0 2px 18px rgba(0,0,0,0.9); }
+  .super .line { font-size: 64px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.05; text-shadow: 0 2px 30px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.6); }
+  .super .sub { margin-top: 16px; font-family: 'Inter', sans-serif; font-size: 30px; font-weight: 500; color: #e6dac4; letter-spacing: 0.005em; text-shadow: 0 2px 22px rgba(0,0,0,0.95), 0 0 2px rgba(0,0,0,0.7); }
+  .super.title { left: 0; right: 0; bottom: auto; top: 50%; text-align: center; transform: translateY(-50%); }
+  .super.title { padding: 90px 0; background: radial-gradient(ellipse 34% 50% at 50% 50%, rgba(3,2,2,0.55) 0%, rgba(3,2,2,0.26) 55%, rgba(3,2,2,0) 100%); }
+  .super.title .line { font-size: 150px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+  .super.title .sub { font-size: 34px; letter-spacing: 0.02em; }
+  .super.title.tone-gold .line { color: #fff3d6; text-shadow: 0 0 46px rgba(236,190,91,0.6), 0 4px 30px rgba(0,0,0,0.9); }
+  .super.kickeronly { left: 0; right: 0; bottom: 120px; padding: 34px 0; text-align: center; background: radial-gradient(ellipse 26% 50% at 50% 50%, rgba(3,2,2,0.55) 0%, rgba(3,2,2,0.25) 55%, rgba(3,2,2,0) 100%); }
+  .super.kickeronly .kicker { margin-bottom: 0; padding-left: 0.6em; font-family: 'Sora', sans-serif; font-size: 40px; font-weight: 700; letter-spacing: 0.6em; color: #fff3d6; text-shadow: 0 2px 22px rgba(0,0,0,0.95), 0 0 3px rgba(0,0,0,0.8); }
+  .super.place { left: 120px; top: 100px; bottom: auto; padding: 16px 26px 16px 22px; border-left: 5px solid #ecbe5b; border-radius: 6px; background: rgba(8,6,4,0.55); }
+  .super.place .kicker { margin-bottom: 0; font-family: 'Sora', sans-serif; font-size: 30px; font-weight: 700; letter-spacing: 0.32em; color: #fff3d6; }
+  .super.step { left: 120px; top: 96px; bottom: auto; display: flex; align-items: center; gap: 18px; padding: 14px 28px 14px 16px; border-radius: 10px;
+    background: rgba(8,6,4,0.72); border: 1px solid rgba(236,190,91,0.45); box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+  .super.step .num { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 28px; color: #1a1006;
+    background: radial-gradient(circle at 35% 30%, #f7d27a, #ecbe5b 60%, #a8741f); }
+  .super.step .kicker { margin: 0; font-family: 'Sora', sans-serif; font-size: 32px; font-weight: 700; letter-spacing: 0.01em; text-transform: none; color: #f5ecd9; }
+  .super.tool { left: 120px; bottom: 110px; max-width: 1060px; padding: 22px 30px 24px; border-radius: 10px; border-left: 5px solid #ecbe5b;
+    background: rgba(8,6,4,0.78); box-shadow: 0 10px 40px rgba(0,0,0,0.55); }
+  .super.tool .kicker { margin-bottom: 10px; }
+  .super.tool .quote { font-family: 'Inter', sans-serif; font-size: 30px; font-weight: 500; line-height: 1.25; color: #f5ecd9; }
+  .super.shout { left: 0; right: 0; bottom: auto; top: 50%; text-align: center; transform: translateY(-50%); }
+  .super.shout .line { font-size: 170px; font-weight: 800; letter-spacing: 0.08em; text-shadow: 0 0 40px rgba(0,0,0,0.85), 0 4px 30px rgba(0,0,0,0.95); }
+  /* Where the picture is now (on footage from the product, after a wipe from a tool): a plate. */
+  .super.tag { left: 120px; top: 96px; bottom: auto; display: flex; align-items: center; gap: 16px; padding: 14px 26px 14px 18px; border-radius: 10px;
+    background: rgba(8,6,4,0.66); border: 1px solid rgba(236,190,91,0.45); box-shadow: 0 10px 40px rgba(0,0,0,0.45); }
+  .super.tag .icon { width: 0; height: 0; border-left: 20px solid #ecbe5b; border-top: 12px solid transparent; border-bottom: 12px solid transparent; margin-left: 4px; }
+  .super.tag .kicker { margin: 0; font-family: 'Sora', sans-serif; font-size: 28px; font-weight: 700; letter-spacing: 0.02em; text-transform: none; color: #f5ecd9; }
+  .super.tag .sub { margin: 0 0 0 4px; font-size: 24px; color: #d8c8a8; }
+  /* The chapter wipe (WIPES in the timeline): a dark panel with gold edges crosses the frame,
+     covers a cut that changes place, names where the picture goes, and leaves the other way. */
+  .wipe { position: absolute; top: -40px; height: 1160px; left: 0; width: 2300px; opacity: 0; will-change: transform; }
+  .wipe .panel { position: absolute; inset: 0; background: linear-gradient(100deg, #0b0806 0%, #18110b 50%, #0b0806 100%); transform: skewX(-12deg); }
+  .wipe .edge { position: absolute; top: 0; bottom: 0; width: 10px; background: linear-gradient(180deg, #f7d27a, #ecbe5b 50%, #a8741f); box-shadow: 0 0 34px rgba(236,190,91,0.75); transform: skewX(-12deg); }
+  .wipe .edge.lead { right: -4px; } .wipe .edge.trail { left: -4px; }
+  .wipelabel { position: absolute; z-index: 2; left: 0; right: 0; top: 50%; transform: translateY(-50%); text-align: center; opacity: 0; }
+  .wipelabel .kicker { font-family: 'JetBrains Mono', monospace; font-size: 24px; letter-spacing: 0.42em; text-transform: uppercase; color: #ecbe5b; padding-left: 0.42em; }
+  .wipelabel .word { margin-top: 14px; font-family: 'Sora', sans-serif; font-weight: 800; font-size: 104px; letter-spacing: 0.04em; color: #f5ecd9; padding-left: 0.04em; }
+  #shade { position: absolute; left: 0; right: 0; bottom: 0; height: 420px; background: linear-gradient(to top, rgba(4,3,3,0.5), rgba(4,3,3,0)); opacity: 0; }
+</style>
+</head>
+<body>
+<div id="overlay"><div id="shade"></div><div id="supers"></div></div>
+<script type="module">
+  import { SUPERS, WIPES, WIPE } from '/src/timeline.js';
+  import { win, easeOut, smooth, clamp } from '/src/util.js';
+  const supersEl = document.getElementById('supers');
+  const shade = document.getElementById('shade');
+  // A wipe's label sits in the frame, not on the moving panel, so it stays still while the panel
+  // passes over it.
+  const wipes = WIPES.map((w) => {
+    const el = document.createElement('div');
+    el.className = 'wipe';
+    el.innerHTML = '<div class="panel"></div><div class="edge lead"></div><div class="edge trail"></div>';
+    const label = document.createElement('div');
+    label.className = 'wipelabel';
+    label.innerHTML = `<div class="kicker">${w.kicker}</div><div class="word">${w.label}</div>`;
+    supersEl.appendChild(el); supersEl.appendChild(label);
+    return { w, el, label };
+  });
+  const els = SUPERS.map((s) => {
+    const el = document.createElement('div');
+    el.className = 'super' + (s.title ? ' title' : '') + (s.shout ? ' shout' : '') + (s.place ? ' place' : '') + (s.step ? ' step' : '') + (s.tool ? ' tool' : '')
+      + (!s.line && !s.title && !s.shout && !s.step && !s.tool && s.kicker && !s.place ? ' kickeronly' : '') + (s.tone ? ' tone-' + s.tone : '');
+    // tag: where the picture is now; step: a numbered plate for a step of a workflow; tool: what an agent asked a tool for, quoted.
+    if (s.tag) { el.className = 'super tag'; el.innerHTML = `<div class="icon"></div><div class="kicker">${s.tag}</div>${s.sub ? `<div class="kicker sub">${s.sub}</div>` : ''}`; supersEl.appendChild(el); return el; }
+    if (s.step) { el.innerHTML = `<div class="num">${s.step}</div><div class="kicker">${s.kicker}</div>`; supersEl.appendChild(el); return el; }
+    if (s.tool) { el.innerHTML = `<div class="kicker">${s.by ?? 'Asked'} <b>${s.tool}</b>${s.verb ? ' ' + s.verb : ''}</div><div class="quote">${s.quote}</div>`; supersEl.appendChild(el); return el; }
+    el.innerHTML = (s.kicker ? `<div class="kicker">${s.kicker}</div>` : '') + (s.title || s.line || s.shout ? `<div class="line">${s.title ?? s.line ?? s.shout}</div>` : '') + (s.sub ? `<div class="sub">${s.sub}</div>` : '');
+    supersEl.appendChild(el); return el;
+  });
+  window.__pose = (t) => {
+    let shadeOn = 0;
+    SUPERS.forEach((s, i) => {
+      const el = els[i];
+      const o = win(t, s.t0, s.t1, 0.45, 0.4);
+      el.style.opacity = o.toFixed(4);
+      if (s.line && !s.title) shadeOn = Math.max(shadeOn, o);
+      const rise = (1 - easeOut((t - s.t0) / 0.8)) * 22;
+      el.style.transform = s.shout
+        ? `translateY(-50%) scale(${(1.18 - 0.18 * easeOut((t - s.t0) / 0.5)).toFixed(4)})`
+        : s.title
+        ? `translateY(calc(-50% + ${rise.toFixed(2)}px)) scale(${(1.04 - 0.04 * easeOut((t - s.t0) / 1.2)).toFixed(4)})`
+        : `translateY(${rise.toFixed(2)}px)`;
+      const line = el.querySelector('.line');
+      if (line && !s.title && !s.shout) line.style.letterSpacing = `${(-0.015 + (1 - easeOut((t - s.t0) / 1.0)) * 0.08).toFixed(4)}em`;
+      if (line && s.title) line.style.letterSpacing = `${(0.06 + (1 - easeOut((t - s.t0) / 2.4)) * 0.18).toFixed(4)}em`;
+    });
+    shade.style.opacity = shadeOn.toFixed(4);
+    // The panel is 2300 px wide and skewed: wholly off frame left of -2450, covering the frame at
+    // -190, wholly off frame right of 2060. It covers from the cut minus WIPE.hold/2 to the cut
+    // plus WIPE.hold/2, coming in over WIPE.in and leaving over WIPE.out.
+    for (const { w, el, label } of wipes) {
+      const a = w.t - WIPE.hold / 2, z = w.t + WIPE.hold / 2;
+      let x;
+      if (t < a - WIPE.in || t > z + WIPE.out) { el.style.opacity = '0'; label.style.opacity = '0'; continue; }
+      if (t < a) x = -2450 + 2260 * smooth((t - (a - WIPE.in)) / WIPE.in);
+      else if (t <= z) x = -190;
+      else x = -190 + 2250 * smooth((t - z) / WIPE.out);
+      el.style.opacity = '1';
+      el.style.transform = `translateX(${x.toFixed(1)}px)`;
+      const o = Math.min(clamp((t - (a - 0.08)) / 0.14), clamp((z + 0.1 - t) / 0.14));
+      label.style.opacity = o.toFixed(4);
+      label.style.transform = `translateY(calc(-50% + ${((1 - easeOut((t - a + 0.1) / 0.4)) * 16).toFixed(2)}px))`;
+    }
+  };
+  (async () => {
+    await document.fonts.ready;
+    await Promise.all(['600 40px "Sora"', '800 40px "Sora"', '500 20px "Inter"', '600 20px "JetBrains Mono"'].map((f) => document.fonts.load(f)));
+    window.__ready = true;
+  })();
+</script>
+</body>
+</html>

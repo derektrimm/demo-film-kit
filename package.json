@@ -1,0 +1,21 @@
+{
+  "name": "game-trailer-kit",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "plan": "python3 capture/plan.py film",
+    "stills": "python3 capture/plan.py stills",
+    "film": "capture/film.sh plan-film.json master",
+    "build": "vite build",
+    "serve": "vite preview --port 4173 --strictPort --host 127.0.0.1",
+    "captions": "node scripts/overlay.mjs out/captions.mov",
+    "cut": "node scripts/cut.mjs out/captions.mov out/body-picture.mp4",
+    "mix": "node scripts/mix.mjs out/body-picture.mp4 out/body.mp4",
+    "join": "node scripts/join.mjs out/body.mp4 out/trailer.mp4",
+    "check": "node scripts/check.mjs out/trailer.mp4"
+  },
+  "dependencies": {
+    "playwright-core": "^1.63.0",
+    "vite": "^8.3.2"
+  }
+}
